@@ -1,5 +1,7 @@
 # SiRI IoT — Sistema de Riego Inteligente
 
+*[Read in English](README.en.md)*
+
 Sistema de riego automatizado y monitoreo ambiental basado en ESP32. Combina lectura
 de sensores, control de una electroválvula/bomba por relé, registro local en tarjeta
 SD y reporte y control remoto por MQTT en formato JSON.
