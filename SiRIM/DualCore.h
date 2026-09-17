@@ -34,8 +34,6 @@ class DualCoreESP32{
   private:
 
     // Tareas primer núcleo
-    TaskHandle_t SendDataTask_t;
-    TaskHandle_t ReciveDataTask_t;
     TaskHandle_t WiFiMQTTTask_t;
 
     // Tareas segundo núcleo
@@ -45,8 +43,6 @@ class DualCoreESP32{
     static QueueHandle_t mqttQueue;
 
     static void WiFiMQTTTask( void * pvParameters );
-    static void SendDataTask( void *pvParameters );
-    static void ReciveDataTask( void * pvParameters );
     static void ReadSensorsTask( void *pvParameters );
 };
 
@@ -70,27 +66,9 @@ void DualCoreESP32 :: ConfigCores( void ){
     NUCLEO_PRIMARIO
   );
 
-  // // Envío de datos al MQTT y guardado en MicroSD
-  // xTaskCreatePinnedToCore(
-  //   this->SendDataTask,
-  //   "SendData",
-  //   10000,
-  //   NULL,
-  //   1,
-  //   &SendDataTask_t,
-  //   NUCLEO_PRIMARIO
-  // );
-
-  // // Recibir datos a través de MQTT
-  // xTaskCreatePinnedToCore(
-  //   this->ReciveDataTask,
-  //   "RecieveData",
-  //   10000,
-  //   NULL,
-  //   1,
-  //   &ReciveDataTask_t,
-  //   NUCLEO_SECUNDARIO
-  // );
+  // No hay tareas separadas de envío/recepción MQTT: WiFiMQTTTask ya desencola mqttQueue
+  // y publica (ver abajo), y PubSubClient invoca mqttCallback de forma síncrona dentro de
+  // mqttClient.loop() (también llamado en cada iteración de WiFiMQTTTask).
 
   // Leer sensores y generar el JSON
   xTaskCreatePinnedToCore(
@@ -190,21 +168,4 @@ void DualCoreESP32 :: ReadSensorsTask ( void * pvParameters){
     vTaskDelay(100/portTICK_PERIOD_MS);
   }
 }
-// void DualCoreESP32 :: SendDataTask ( void * pvParameters){
-
-
-//    while(true){
-//     // Verificar si hay mensajes para publicar en la cola
-//     if(xQueueReceive(mqttQueue, &receivedMessage, 0) == pdTRUE) {
-//         // Publicar el mensaje si hay conexión MQTT
-//         Wireless.publishMessage(receivedMessage.message);
-//     }
-//     vTaskDelay(100/portTICK_PERIOD_MS);
-//   }
-// }
-// void DualCoreESP32 :: ReciveDataTask ( void * pvParameters){
-//   while(true){
-//     vTaskDelay(100/portTICK_PERIOD_MS);
-//   }
-// }
 #endif
