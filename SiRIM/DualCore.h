@@ -30,7 +30,7 @@ IrrigationControl iCtrl;
 class DualCoreESP32{
   public:
     void ConfigCores( void ); // Creación de tareas xTaskCreatePinnedToCore
-  
+
   private:
 
     // Tareas primer núcleo
@@ -149,7 +149,7 @@ void DualCoreESP32 :: ReadSensorsTask ( void * pvParameters){
     unsigned long currentTime = millis();
 
     if(currentTime - lastReadTime >= SENSOR_READ_INTERVAL){
-      lastReadTime = currentTime; 
+      lastReadTime = currentTime;
 
       // Realizar la lectura de sensores
       iCtrl.readAllSensors();
@@ -158,39 +158,23 @@ void DualCoreESP32 :: ReadSensorsTask ( void * pvParameters){
       String json = iCtrl.createJSON();
       iCtrl.saveDataInSD(json);
 
-      // Evaluación si es hora de regar
-      if(iCtrl.isManualIrrigationActivated()){
-        if(iCtrl.irrigationStatus){
-          // El usuario activó la opción de regar
-          Serial.println("Activación manual");
-        }
-      } else {
-        if(iCtrl.isTimerIrrigationActivated()){
-          if(iCtrl.evaluateIfIsTimeToWater()){
-            // Es hora de regar...
-            Serial.println("Activación por alarma");
-          }
-        } else {
-          if(iCtrl.evaluateIrrigationDecision()){
-            // Se llegó a valores mínimos de los sensores
-            Serial.println("Activación por parámetros de entrada");
-          }
-        }
-      }
       // Copiar el JSON al mensaje MQTT
       strncpy(mqttMessage.message, json.c_str(), sizeof(mqttMessage.message) - 1);
       mqttMessage.message[sizeof(mqttMessage.message) - 1] = '\0';  // Asegurar terminación null
-      
+
       // Enviar a la cola MQTT
       xQueueSend(mqttQueue, &mqttMessage, 0);
     }
+
+    // Control de riego: debe correr en cada iteración, no solo cada SENSOR_READ_INTERVAL
+    iCtrl.updateIrrigation();
 
     vTaskDelay(100/portTICK_PERIOD_MS);
   }
 }
 // void DualCoreESP32 :: SendDataTask ( void * pvParameters){
-   
-   
+
+
 //    while(true){
 //     // Verificar si hay mensajes para publicar en la cola
 //     if(xQueueReceive(mqttQueue, &receivedMessage, 0) == pdTRUE) {

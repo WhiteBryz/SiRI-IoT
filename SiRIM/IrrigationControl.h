@@ -25,8 +25,8 @@
 #define SPI_MOSI 23
 #define SPI_MISO 19
 #define SPI_SCK 18
-#define BTN_PIN1 = 15;
-#define BTN_PIN2 = 17;
+#define BTN_PIN1 15
+#define BTN_PIN2 27 // reservado para el futuro botón de carrusel de LCD
 
 // Instancias de las clases
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -55,6 +55,8 @@ private:
   float s_airHumidity;
   float s_airTemperature;
   float s_waterLevel;
+  bool s_relayActive = false;
+  unsigned long lastPumpButtonPress = 0;
 
   /*-- Parámetros de configuración para gestionar el riego (se modifica por medio de mensaje MQTT en JSON) --*/
   String irrigationAtTime = "";
@@ -96,6 +98,12 @@ public:
   bool isTimerIrrigationActivated(void);
   bool evaluateIrrigationDecision(void);
   bool evaluateIfIsTimeToWater(void);
+
+  // Funciones para control y seguridad del riego
+  bool isWaterLevelSafe(void);
+  void driveRelay(bool activate);
+  bool isRelayActive(void);
+  void updateIrrigation(void);
 };
 
 void IrrigationControl ::init(void)
@@ -112,6 +120,10 @@ void IrrigationControl ::init(void)
   pinMode(SOIL_MOISTURE2_PIN, INPUT);
   pinMode(RELAY1_PIN, OUTPUT);
   pinMode(RELAY2_PIN, OUTPUT);
+  pinMode(BTN_PIN1, INPUT_PULLUP);
+
+  digitalWrite(RELAY1_PIN, LOW);
+  digitalWrite(RELAY2_PIN, LOW);
 
   dht.begin();
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
@@ -184,6 +196,59 @@ bool IrrigationControl ::evaluateIfIsTimeToWater(void)
   return false;
 }
 
+/*-- Funciones para control y seguridad del riego --*/
+bool IrrigationControl ::isWaterLevelSafe(void)
+{
+  return s_waterLevel >= 20;
+}
+
+void IrrigationControl ::driveRelay(bool activate)
+{
+  s_relayActive = activate;
+  digitalWrite(RELAY1_PIN, activate ? HIGH : LOW);
+}
+
+bool IrrigationControl ::isRelayActive(void)
+{
+  return s_relayActive;
+}
+
+void IrrigationControl ::updateIrrigation(void)
+{
+  // Botón manual de bomba: solo aplica en modo manual (con antirrebote)
+  if (manualIrrigationActivated && !digitalRead(BTN_PIN1))
+  {
+    if (millis() - lastPumpButtonPress > 300)
+    {
+      irrigationStatus = !irrigationStatus;
+      lastPumpButtonPress = millis();
+    }
+  }
+
+  // Condición base: nivel de agua insuficiente bloquea el riego sin importar el modo
+  if (!isWaterLevelSafe())
+  {
+    driveRelay(false);
+    return;
+  }
+
+  if (manualIrrigationActivated)
+  {
+    driveRelay(irrigationStatus);
+  }
+  else if (timerIrrigationActivated)
+  {
+    if (evaluateIfIsTimeToWater())
+    {
+      driveRelay(true);
+    }
+  }
+  else
+  {
+    driveRelay(evaluateIrrigationDecision());
+  }
+}
+
 /*-- Funciones para JSON y Memoria SD --*/
 
 String IrrigationControl ::createJSON(void)
@@ -197,7 +262,7 @@ String IrrigationControl ::createJSON(void)
   doc["humedadSuelo"]["sensor1"] = s_soilMoisture1;
   doc["humedadSuelo"]["sensor2"] = s_soilMoisture2;
   doc["iluminacion"] = s_lightIntensity;
-  doc["riegoManual"] = false; // Cambiar a `true` si controlas riego manual
+  doc["riegoManual"] = isRelayActive();
   doc["nivelAgua"] = s_waterLevel;
 
   // Convertir JSON a cadena
@@ -276,7 +341,9 @@ float IrrigationControl ::readWaterLevel(void)
 
   digitalWrite(TRIGGER, LOW);
 
-  return (pulseIn(ECHO, HIGH) * VELOCIDAD_SONIDO / 2);
+  float distanceCm = pulseIn(ECHO, HIGH) * VELOCIDAD_SONIDO / 2;
+  // Calibración del tanque: 17cm = vacío, 6cm = lleno (recalibrar si el tanque físico difiere)
+  return map(distanceCm, 17, 6, 0, 100);
 }
 
 int IrrigationControl ::readLightIntensity(int pinSensor)
