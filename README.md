@@ -4,6 +4,18 @@ Sistema de riego automatizado y monitoreo ambiental basado en ESP32. Combina lec
 de sensores, control de una electroválvula/bomba por relé, registro local en tarjeta
 SD y reporte y control remoto por MQTT en formato JSON.
 
+## Componentes del proyecto
+
+Este repositorio contiene el firmware del dispositivo. El proyecto completo se
+compone de tres repositorios:
+
+- **Firmware** (este repositorio): lee los sensores, controla el riego y publica/recibe
+  datos por MQTT.
+- **[SiRI-API](https://github.com/WhiteBryz/SiRI-API)**: backend que conecta el
+  dispositivo con los clientes finales.
+- **[AimsMovilApp](https://github.com/JoelGarciaDev/AimsMovilApp)**: aplicación móvil
+  para monitorear y controlar el sistema.
+
 ## Funcionalidad
 
 - **Sensores**: temperatura y humedad ambiente (DHT11), intensidad de luz (LDR),
