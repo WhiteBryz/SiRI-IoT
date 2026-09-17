@@ -105,9 +105,27 @@ void DualCoreESP32 :: ConfigCores( void ){
 
 }
 
+// Callback MQTT: parsea el JSON entrante y actualiza la configuración de riego
+void mqttCallback(char* topic, byte* payload, unsigned int length){
+  String message;
+  for (unsigned int i = 0; i < length; i++){
+    message += (char)payload[i];
+  }
+
+  StaticJsonDocument<256> doc;
+  DeserializationError error = deserializeJson(doc, message);
+  if (error){
+    Serial.println("Error al parsear JSON recibido por MQTT");
+    return;
+  }
+
+  iCtrl.changeConfigurationParameters(doc);
+}
+
 void DualCoreESP32 :: WiFiMQTTTask( void * pvParameters ){
   Serial.println("Entro a WiFiMQTTTask");
   Wireless.startConnections();
+  mqttClient.setCallback(mqttCallback);
 
   // Buffer para recibir mensajes de la cola
   MQTTMessage receivedMessage;

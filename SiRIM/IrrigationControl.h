@@ -33,16 +33,6 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 DHT dht(DHT_PIN, DHT11);
 RTC_DS1307 rtc;
 
-struct ChangeConfiguration
-{
-  String setIrrigationTime;
-  int setLightThreshold;
-  int setSoilMoistureThreshold;
-  bool setManualIrrigationMode;
-  bool setTimerIrrigationMode;
-  bool setIrrigationStatus;
-};
-
 class IrrigationControl
 {
 private:
@@ -91,7 +81,7 @@ public:
   String currentHour(void);
   static void saveDataInSD(const String &data);
   String createJSON(void);
-  void changeConfigurationParameters(ChangeConfiguration newConfig);
+  void changeConfigurationParameters(JsonDocument &doc);
 
   // Funciones para condicionales de riego
   bool isManualIrrigationActivated(void);
@@ -152,18 +142,43 @@ void IrrigationControl ::init(void)
   delay(2000);
 }
 
-void IrrigationControl ::changeConfigurationParameters(ChangeConfiguration newConfig)
+void IrrigationControl ::changeConfigurationParameters(JsonDocument &doc)
 {
-  irrigationAtTime = newConfig.setIrrigationTime;
-  minLightThreshold = newConfig.setLightThreshold;
-  minSoilMoistureThreshold = newConfig.setSoilMoistureThreshold;
-  manualIrrigationActivated = newConfig.setManualIrrigationMode;
-  timerIrrigationActivated = newConfig.setTimerIrrigationMode;
-  irrigationStatus = newConfig.setIrrigationStatus;
+  if (doc["modo"] == "manual")
+  {
+    manualIrrigationActivated = true;
+    timerIrrigationActivated = false;
+    irrigationStatus = doc.containsKey("bombaOn") ? (bool)doc["bombaOn"] : false;
+  }
+  else if (doc["modo"] == "timer")
+  {
+    manualIrrigationActivated = false;
+    timerIrrigationActivated = true;
+    if (doc.containsKey("horaRiego"))
+    {
+      irrigationAtTime = doc["horaRiego"].as<String>();
+    }
+  }
+  else if (doc["modo"] == "auto")
+  {
+    manualIrrigationActivated = false;
+    timerIrrigationActivated = false;
+  }
+
+  if (doc.containsKey("nivelLuz"))
+  {
+    minLightThreshold = doc["nivelLuz"];
+  }
+  if (doc.containsKey("humedadSuelo"))
+  {
+    minSoilMoistureThreshold = doc["humedadSuelo"];
+  }
 }
 String IrrigationControl ::currentHour(void)
 {
-  return String(currentDate.hour()) + ":" + String(currentDate.minute());
+  String hour = (currentDate.hour() < 10 ? "0" : "") + String(currentDate.hour());
+  String minute = (currentDate.minute() < 10 ? "0" : "") + String(currentDate.minute());
+  return hour + ":" + minute;
 }
 /*-- Funciones para condicionales de riego --*/
 bool IrrigationControl ::isManualIrrigationActivated(void)

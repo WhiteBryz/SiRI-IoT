@@ -33,7 +33,6 @@ public:
   static void reconnectMQTT(void);
   static bool isMQTTConnected(void);
   static void publishMessage(const char *payload);
-  static void mqttCallback(byte *payload, unsigned int length);
   static void subscribeTopic(char *topic);
 };
 
@@ -119,26 +118,6 @@ void WifiMqtt ::publishMessage(const char *payload)
   {
     Serial.println("No se puede publicar. MQTT no está conectado.");
   }
-}
-
-// Función de callback para manejar mensajes entrantes
-void WifiMqtt ::mqttCallback(byte *payload, unsigned int length)
-{
-  Serial.print("Mensaje recibido en el topic: ");
-  Serial.println(env.topicRX);
-
-  String message;
-  for (unsigned int i = 0; i < length; i++)
-  {
-    message += (char)payload[i];
-  }
-
-  Serial.print("Contenido del mensaje: ");
-  Serial.println(message);
-
-  // if (String(topic) == topicWorked) {
-  //     Serial.println("Procesando mensaje del topic ucol/iot...");
-  // }
 }
 
 void WifiMqtt ::subscribeTopic(char *topic)
